@@ -8,6 +8,5 @@ final class AwsSigv4SignerTests: XCTestCase {
 
     static var allTests = [
         ("testInit", testInit),
-        ("testOfficialTestSuite", testOfficialTestSuite),
     ]
 }
