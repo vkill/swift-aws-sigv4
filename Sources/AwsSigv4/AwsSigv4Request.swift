@@ -18,7 +18,7 @@ public struct AwsSigv4Request {
     public let headers: [String:String]
     public let body: Data?
 
-    public init(httpMethod: HTTPMethod, url: URL, headers: [String:String], body: Data?) {
+    public init(httpMethod: HTTPMethod, url: URL, headers: [String:String] = [:], body: Data? = nil) {
         self.httpMethod = httpMethod
         self.url = url
         self.headers = headers
