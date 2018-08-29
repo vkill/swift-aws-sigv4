@@ -3,14 +3,11 @@ import struct Foundation.URL
 
 public struct AwsSigv4Request {
     public enum HTTPMethod: String {
-        case get = "GET"
-        case put = "PUT"
-        case post = "POST"
-        case delete = "DELETE"
-        case head = "HEAD"
-        case options = "OPTIONS"
-        case trace = "TRACE"
-        case connect = "CONNECT"
+        case GET = "GET"
+        case PUT = "PUT"
+        case POST = "POST"
+        case DELETE = "DELETE"
+        case HEAD = "HEAD"
     }
 
     public let httpMethod: HTTPMethod
