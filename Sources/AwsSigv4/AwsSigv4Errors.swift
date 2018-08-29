@@ -1,4 +1,4 @@
 public enum AwsSigv4Errors: Error {
-    case badUrlString
+    case missingHostInURL
     case badLogic
 }

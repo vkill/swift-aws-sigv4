@@ -1,4 +1,4 @@
-public struct Signature {
+public struct AwsSigv4Signature {
     public let headers: [String: String]
     public let stringToSign: String
     public let canonicalRequest: String

@@ -8,26 +8,12 @@ import struct Foundation.TimeZone
 import struct Foundation.Locale
 
 public struct AwsSigv4Signer {
-    public enum HTTPMethod: String {
-        case get = "GET"
-        case put = "PUT"
-        case post = "POST"
-        case delete = "DELETE"
-        case head = "HEAD"
-        case options = "OPTIONS"
-        case trace = "TRACE"
-        case connect = "CONNECT"
-    }
-
     public enum Content {
-        case none
         case unsigned
         case data(Data)
 
         public func sha256sum(crypto: AwsSigv4Crypto) throws -> String {
             switch self {
-            case .none:
-                return try crypto.sha256Digest(Data()).hexEncodedString()
             case .unsigned:
                 return "UNSIGNED-PAYLOAD"
             case .data(let data):
@@ -66,17 +52,11 @@ public struct AwsSigv4Signer {
         self.unsignedHeaderKeys = unsignedHeaderKeys
     }
 
-    public func signRequest(
-        httpMethod: HTTPMethod,
-        urlString: String,
-        headers: [String:String] = [:],
-        content: Content = Content.unsigned
-    ) throws -> Signature {
-        guard let url = URL(string: urlString) else {
-            throw AwsSigv4Errors.badUrlString
-        }
+    public func signRequest(request: AwsSigv4Request) throws -> AwsSigv4Signature {
+        let httpMethod = request.httpMethod
+        let url = request.url
 
-        var headers = downcaseHeaders(headers)
+        var headers = downcaseHeaders(request.headers)
 
         let amzDate: String
         amzDate = headers["x-amz-date"] ?? amzDateFromDate(Date())
@@ -86,6 +66,12 @@ public struct AwsSigv4Signer {
         date = String(amzDate[..<amzDate.index(amzDate.startIndex, offsetBy: 8)])
 
         let contentSha256: String
+        let content: Content
+        if let body = request.body {
+            content = .data(body)
+        } else {
+            content = .unsigned
+        }
         contentSha256 = try headers["x-amz-content-sha256"] ?? content.sha256sum(crypto: crypto)
 
         var sigv4Headers: [String:String] = [:]
@@ -110,7 +96,7 @@ public struct AwsSigv4Signer {
             "Signature=\(sig)",
             ].joined(separator: ", ")
 
-        return Signature(
+        return AwsSigv4Signature(
             headers: sigv4Headers,
             stringToSign: sts,
             canonicalRequest: creq,
@@ -119,17 +105,13 @@ public struct AwsSigv4Signer {
     }
 
     public func presignUrl(
-        httpMethod: HTTPMethod,
-        urlString: String,
-        expiresIn: Int = 900,
+        httpMethod: AwsSigv4Request.HTTPMethod,
+        url: URL,
         headers: [String:String] = [:],
-        date: Date? = nil,
-        content: Content = Content.unsigned
+        body: Data? = nil,
+        expiresIn: Int = 900,
+        date: Date? = nil
     ) throws -> URL {
-        guard let url = URL(string: urlString) else {
-            throw AwsSigv4Errors.badUrlString
-        }
-
         var headers = downcaseHeaders(headers)
         headers["host"] = try host(url)
 
@@ -141,6 +123,12 @@ public struct AwsSigv4Signer {
         date = String(amzDate[..<amzDate.index(amzDate.startIndex, offsetBy: 8)])
 
         let contentSha256: String
+        let content: Content
+        if let body = body {
+            content = .data(body)
+        } else {
+            content = .unsigned
+        }
         contentSha256 = try headers["x-amz-content-sha256"] ?? content.sha256sum(crypto: crypto)
 
         var urlQuerySuffixDict: [String:String] = [:]
@@ -164,7 +152,7 @@ public struct AwsSigv4Signer {
 
         let urlQuerySuffixString = urlQuerySuffixList.joined(separator: "&")
 
-        var urlStringNew = urlString
+        var urlStringNew = url.absoluteString
         if let query = url.query {
             if !query.isEmpty {
                 urlStringNew += "&"
@@ -228,7 +216,7 @@ public struct AwsSigv4Signer {
 
     private func host(_ url: URL) throws -> String {
         guard let host = url.host else {
-            throw AwsSigv4Errors.badUrlString
+            throw AwsSigv4Errors.missingHostInURL
         }
         if let port = url.port {
             return "\(host):\(port)"
@@ -273,7 +261,7 @@ public struct AwsSigv4Signer {
             .joined(separator: "\n")
     }
 
-    private func canonicalRequest(_ httpMethod: HTTPMethod, _ url: URL, _ headers: [String:String], _ contentSha256: String) throws -> String {
+    private func canonicalRequest(_ httpMethod: AwsSigv4Request.HTTPMethod, _ url: URL, _ headers: [String:String], _ contentSha256: String) throws -> String {
         return [
             httpMethod.rawValue,
             try path(url),
